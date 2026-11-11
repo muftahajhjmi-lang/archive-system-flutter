@@ -1,4 +1,3 @@
-YAML
 
 name: Build Flutter APK
 
@@ -27,14 +26,35 @@ jobs:
         with:
           channel: stable
 
-      - name: Get dependencies
+      - name: Extract Flutter Project
+        run: |
+          mkdir -p _project
+          unzip -o ArchiveSystem_Flutter_Project.zip -d _project
+
+      - name: Find Project
+        run: |
+          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/_project" -type f -name pubspec.yaml -printf '%h\n' | head -n 1)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Flutter project not found"
+            exit 1
+          fi
+          if [ ! -d "$PROJECT_DIR/android" ] || [ ! -d "$PROJECT_DIR/lib" ]; then
+            echo "Missing android or lib folder"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Get Dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
         run: flutter pub get
 
       - name: Build APK
+        working-directory: ${{ env.PROJECT_DIR }}
         run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ArchiveSystem-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
